@@ -1,0 +1,134 @@
+Issue key,Issue Type,Parent,Summary,Description
+EP-1,Epic,,Platform Setup,"Jira kanban board, AWS account hardening, repo scaffold, 2026 spec verification, local tooling. Foundation epic - do not skip.
+Acceptance criteria:
+- Board visible with columns and WIP limits
+- All epics and stories present and epic-linked
+- Local tooling green"
+EP-2,Epic,,Tier A Ingestion (API -> Lambda -> S3),"MVP ingestion tier: API Gateway -> Lambda -> S3, one JSON line per event, date-partitioned. First end-to-end demo lands here.
+Acceptance criteria:
+- POST /events yields 200 and a visible S3 object
+- Invalid payloads rejected
+- API key auth works"
+EP-3,Epic,,Enrichment and Idempotency,"Enrich raw events (UA parse, IP geo, event_day, is_bot, currency normalization) and dedupe via DynamoDB event_id.
+Acceptance criteria:
+- Enriched fields present on every landed record
+- Re-POST of same event_id does not duplicate"
+EP-4,Epic,,Tier B (Firehose -> Parquet),"Production-grade path: Kinesis Data Firehose buffers and converts to Parquet + GZIP with dynamic partitioning.
+Acceptance criteria:
+- Parquet objects land with bounded partition keys only
+- Both tiers remain demoable"
+EP-5,Epic,,Analytics (Glue + Athena),"Glue table over Tier A output with partition projection, SQL library, headless Athena smoke script.
+Acceptance criteria:
+- Partition projection answers queries on a new day without MSCK REPAIR
+- All SQL queries execute against live data"
+EP-6,Epic,,CI/CD,"GitHub Actions: test gates on PR, deploy dev on push, deploy prod on main behind environment approval.
+Acceptance criteria:
+- Red tests block merge
+- Dev and prod stacks deploy via pipeline
+- Prod requires manual approval"
+EP-7,Epic,,Observability,"CloudWatch dashboard widget set and SNS alarms defined in IaC.
+Acceptance criteria:
+- Dashboard widgets move after a demo-generator run
+- Injected failure trips alarm and sends email"
+EP-8,Epic,,Docs and Interview Talk Track,"README with architecture, cost table, demo script. 5-minute interview arc.
+Acceptance criteria:
+- Stranger can deploy and query from README alone
+- Talk track written and rehearsed"
+ST-1,Story,EP-1,Create Jira project and kanban board; import backlog,"Company-managed Kanban project (hierarchy import requires company-managed in Jira Cloud). Columns: Backlog - Ready - In Progress - Review - Done. WIP limits: In Progress 2, Review 1. Import this CSV via Administration - System - External system import - CSV; map Parent column to link stories to epics.
+Acceptance criteria:
+- Board visible with columns and WIP limits set
+- All 8 epics and 26 stories present, epic-linked, in order
+- Definition of Done pasted into project description"
+ST-2,Story,EP-1,Configure AWS account with MFA access and budget alarm,"Create AWS account admin user with MFA, configure CLI. Arm a $5 cost budget alarm from day one.
+Acceptance criteria:
+- aws sts get-caller-identity returns expected account
+- $5 budget alarm armed"
+ST-3,Story,EP-1,Initialize GitHub repo and SAM project skeleton,"git init, sam init with Python 3.12 template, .gitignore, README stub, push to public GitHub repo named eventpulse.
+Acceptance criteria:
+- sam build and sam validate pass locally
+- Repo live on GitHub"
+ST-4,Story,EP-1,Verify 2026 AWS specifics against official docs,"Pin live facts before building: (a) aws-sam-actions/deploy-cloudformation-stack@v2 maintained vs direct aws cloudformation deploy, (b) Firehose buffering limits, (c) Glue partition projection still the no-crawl path, (d) Athena pricing per TB scanned. Record all in docs/decisions.md.
+Acceptance criteria:
+- docs/decisions.md updated with versions, limits, prices
+- Any drift from plan recorded as corrections"
+ST-5,Story,EP-1,Set up local tooling and tests,"Python venv, pytest, sqlfluff, sam local smoke test. Makefile with test/lint targets.
+Acceptance criteria:
+- make test green
+- sqlfluff lints repo SQL (empty set initially)"
+ST-6,Story,EP-2,Define SAM template for Tier A stack,"REST API gateway, Ingest Lambda, S3 bucket, IAM roles in one template.yaml. Deploy to dev stack.
+Acceptance criteria:
+- sam deploy creates the stack
+- endpoint returns 200 on POST /events"
+ST-7,Story,EP-2,Implement ingest Lambda writing events to S3,"Validate JSON, set event_ts, write one JSON line (gzip) to s3://bucket/events/YYYY/MM/DD/. First end-to-end demo: POST -> API Gateway -> Lambda -> visible S3 object.
+Acceptance criteria:
+- Test POST lands a gzip object under correct date prefix
+- Event record content matches input"
+ST-8,Story,EP-2,Reject invalid events with structured 400s,"Bad payloads return 400 with field-level reason; errors logged to CloudWatch. Table-driven pytest coverage.
+Acceptance criteria:
+- Malformed payload -> 400 with reason
+- Tests cover missing fields, bad types, bad JSON"
+ST-9,Story,EP-2,Add API key auth via Usage Plan,"API key + usage plan per environment; key as request header.
+Acceptance criteria:
+- Missing or bad key -> 403
+- Valid key -> 200"
+ST-10,Story,EP-2,Build demo event generator script,"scripts/generate_events.py: inline 5000 realistic events (page_view, add_to_cart, purchase, error) and POST them.
+Acceptance criteria:
+- 5000 requests accepted without errors
+- Objects landed in S3"
+ST-11,Story,EP-3,Add enrichment to ingest pipeline,"UA parse (device/browser), IP to geo country, event_day derived, is_bot flag, currency-normalized amount via rates dict. Unit tests per enrichment.
+Acceptance criteria:
+- Enriched fields present on every landed record
+- Unit tests green for each enrichment"
+ST-12,Story,EP-3,Implement event_id idempotency with DynamoDB,"DynamoDB table keyed on event_id; ingest skips duplicates. Re-POST safe.
+Acceptance criteria:
+- Re-POST same event_id creates no second S3 object
+- Concurrent duplicates handled (conditional put)"
+ST-13,Story,EP-4,Add Firehose stream with dynamic partitioning,"Firehose buffers to target 64 MiB / 60 s, Parquet + GZIP conversion, dynamic partitioning to events/event_type=.../year=.../month=.../day=.../. Bounded keys only.
+Acceptance criteria:
+- Parquet objects appear with expected partition layout
+- Partition keys bounded (event_type, never user_id)"
+ST-14,Story,EP-4,Create Glue table over Tier B output,"External table matching Firehose Parquet output; queryable from Athena.
+Acceptance criteria:
+- Athena SELECT works on Firehose-parquet data"
+ST-15,Story,EP-4,Route ingest output to Firehose,"Move Tier A Lambda from direct S3 write to Firehose; separate endpoint path keeps both tiers demoable.
+Acceptance criteria:
+- Both tiers land data end-to-end
+- Existing Tier A S3 layout still works"
+ST-16,Story,EP-5,Create Glue table with partition projection for Tier A,"day DATE partition key, projection.day.format = yyyy/MM/dd, range 2024-01-01 to NOW.
+Acceptance criteria:
+- Query on brand-new day returns rows without MSCK REPAIR or crawl"
+ST-17,Story,EP-5,Write SQL library,"sql/ dir, sqlfluff-clean: (1) daily revenue + active users + window/FILTER aggregates, (2) top products by revenue with RANK(), (3) funnel per country (add_to_cart rate, conversion rate).
+Acceptance criteria:
+- All queries execute against live data
+- sqlfluff passes on sql/"
+ST-18,Story,EP-5,Build headless Athena smoke script,"scripts/athena_example.py via boto3 runs the SQL library and prints row counts.
+Acceptance criteria:
+- Script runs, prints row counts, exits 0"
+ST-19,Story,EP-6,Add CI test gate to PRs,"GitHub Actions test job: pytest, sqlfluff, sam validate on every PR.
+Acceptance criteria:
+- Red tests block merge
+- Green run passes"
+ST-20,Story,EP-6,Deploy dev environment from pipeline,"Push to dev triggers build and sam deploy to eventpulse-dev stack, assume-role via configure-aws-credentials@v4.
+Acceptance criteria:
+- Merge to dev updates dev stack
+- Deploy artifacts reusable for prod"
+ST-21,Story,EP-6,Deploy prod behind environment approval,"Push to main triggers deploy to eventpulse-prod behind GitHub environment with manual approval and concurrency guard; --no-fail-on-empty-changeset.
+Acceptance criteria:
+- Prod stack deploys only on approved runs
+- No-op changesets do not fail the run"
+ST-22,Story,EP-6,Publish stack outputs to workflow summary,"API URL and dashboard link echoed into run summary and README quick-start.
+Acceptance criteria:
+- Run summary shows live endpoint"
+ST-23,Story,EP-7,Build CloudWatch dashboard in IaC,"Widgets: API call count, 5xx count, Lambda invocations/errors, duration p95, S3 puts per day.
+Acceptance criteria:
+- Widgets show movement after demo-generator run"
+ST-24,Story,EP-7,Add SNS alarms,"API 5xx > 0 (1 period) and Lambda error > 0 notify via SNS email.
+Acceptance criteria:
+- Injected failure trips alarm, email received"
+ST-25,Story,EP-8,Write production README,"Architecture diagram (POST -> API GW -> Lambda -> S3/Firehose -> Athena), cost table under $3/mo, demo script, why-each-piece.
+Acceptance criteria:
+- Stranger deploys and queries from README alone"
+ST-26,Story,EP-8,Write interview talk track,"5-minute arc: problem, architecture, failure demos (idempotency, partition projection), cost story. Rehearse; optional Loom recording.
+Acceptance criteria:
+- Script written and walked through
+- Optional recording saved"
