@@ -1,3 +1,6 @@
-# misc
+.venv/
+__pycache__/
+*.pyc
 .DS_Store
-nvim.log
+.aws/
+*.log
