@@ -32,6 +32,7 @@ sam validate  # must pass
 
 ## TODO / caveats
 
-- 2026 AWS specifics (SAM deploy action version, Firehose buffer limits,
-  Athena pricing) get verified against official docs in ST-4
-  (`docs/decisions.md`).
+- 2026 AWS facts verified in ST-4 — see [`docs/decisions.md`](docs/decisions.md).
+  One drift found: the community `aws-sam-actions/deploy-cloudformation-stack`
+  action is gone (404); pipeline will use official
+  `aws-actions/setup-sam@v3` + `configure-aws-credentials@v4` + `sam deploy`.
