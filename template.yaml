@@ -1,0 +1,18 @@
+AWSTemplateFormatVersion: "2010-09-09"
+Transform: AWS::Serverless-2016-10-31
+Description: EventPulse - serverless event ingestion platform. Skeleton (ST-3).
+
+Globals:
+  Function:
+    Runtime: python3.12
+    Timeout: 15
+    MemorySize: 128
+    Handler: app.lambda_handler
+
+Resources:
+  # Stub only. Real resources (API Gateway, S3, IAM, DynamoDB) are added
+  # incrementally: API+S3 in ST-6, DynamoDB dedupe in ST-12, Firehose in ST-13.
+  IngestFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      CodeUri: src/ingest
