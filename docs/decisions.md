@@ -15,7 +15,7 @@ silently ignored — each carries the downstream action.
 
 - **Date:** 2026-08-31
 - **Local toolchain:** SAM CLI 1.165.0, boto3 1.43.84, Lambda target runtime
-  python3.12, region us-east-1, account 373550663790 (profile
+  python3.12, region us-east-1, account <account-id> (profile
   `eventpulse-admin`, AdministratorAccess).
 - **Pipeline direction:** GitHub Actions, official AWS actions (see F1).
 
