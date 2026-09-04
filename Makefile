@@ -1,5 +1,7 @@
-SAM := /Users/silveryar/bin/aws-sam-cli/sam
+SAM ?= sam
 PY := .venv/bin/python
+
+# SAM is resolved via PATH (override with SAM=/path/to/sam if needed).
 
 .PHONY: test lint build validate smoke
 
