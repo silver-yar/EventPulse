@@ -12,7 +12,7 @@ driven by a kanban backlog (Jira, seed: `docs/backlog.csv`).
 ## Layout
 
 ```
-template.yaml          SAM template (stub Lambda today; API+S3 in ST-6)
+template.yaml          SAM template: REST API + Ingest Lambda + S3 events bucket (Tier A spine)
 src/ingest/            Lambda code (stub handler today)
 scripts/               Ops scripts (setup_budget.py: $5 monthly cost budget)
 docs/backlog.csv       Jira import seed for the kanban backlog

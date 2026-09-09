@@ -1,6 +1,12 @@
 AWSTemplateFormatVersion: "2010-09-09"
 Transform: AWS::Serverless-2016-10-31
-Description: EventPulse - serverless event ingestion platform. Skeleton (ST-3).
+Description: EventPulse - serverless event ingestion platform. Tier A spine (ST-6).
+
+Parameters:
+  Environment:
+    Type: String
+    Default: dev
+    AllowedValues: [dev, prod]
 
 Globals:
   Function:
@@ -10,9 +16,43 @@ Globals:
     Handler: app.lambda_handler
 
 Resources:
-  # Stub only. Real resources (API Gateway, S3, IAM, DynamoDB) are added
-  # incrementally: API+S3 in ST-6, DynamoDB dedupe in ST-12, Firehose in ST-13.
+  EventsBucket:
+    Type: AWS::S3::Bucket
+    Properties:
+      # Deterministic, globally unique, env-scoped; prod uses the same scheme.
+      BucketName: !Sub "eventpulse-events-${AWS::Region}-${AWS::AccountId}-${Environment}"
+
+  EventApi:
+    Type: AWS::Serverless::Api
+    Properties:
+      StageName: Prod
+      # API key + usage plan arrive in ST-9.
+
   IngestFunction:
     Type: AWS::Serverless::Function
     Properties:
       CodeUri: src/ingest
+      Events:
+        PostEvents:
+          Type: Api
+          Properties:
+            RestApiId: !Ref EventApi
+            Path: /events
+            Method: post
+      Policies:
+        - AWSLambdaBasicExecutionRole
+        - Statement:
+            - Sid: PutEventsObjects
+              Effect: Allow
+              Action:
+                - s3:PutObject
+              Resource:
+                - !Sub "${EventsBucket.Arn}/*"
+
+Outputs:
+  ApiEndpoint:
+    Description: Tier A REST API invoke URL
+    Value: !Sub "https://${EventApi}.execute-api.${AWS::Region}.amazonaws.com/Prod/"
+  EventsBucketName:
+    Description: S3 events bucket
+    Value: !Ref EventsBucket
