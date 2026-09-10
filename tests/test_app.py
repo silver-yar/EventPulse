@@ -1,4 +1,4 @@
-"""Tests for the EventPulse ingest handler (Tier A S3 writer, ST-7)."""
+"""Tests for the EventPulse ingest handler (Tier A S3 writer, ST-7/ST-8)."""
 
 import gzip
 import json
@@ -59,7 +59,7 @@ def test_valid_event_lands_gzip_object_under_date_prefix():
 
 def test_missing_event_ts_is_set_to_now():
     with captured_put() as fake:
-        result = lambda_handler(make_event({"event_id": "evt-2"}), SimpleNamespace())
+        result = lambda_handler(make_event({"event_id": "evt-2", "event_type": "page_view", "user_id": "u"}), SimpleNamespace())
 
         assert result["statusCode"] == 200
         key = fake.put_object.call_args.kwargs["Key"]
@@ -73,9 +73,39 @@ def test_missing_event_ts_is_set_to_now():
         assert stored["event_ts"]
 
 
-def test_invalid_json_returns_400_and_writes_nothing():
+# (body, expected_status, expected_error_code, expected_detail_fields)
+# detail key ORDER follows validate_event() walk order, not alphabetical.
+VALIDATION_CASES = [
+    (SAMPLE_EVENT, 200, None, None),
+    (json.dumps({"event_id": "evt-m", "event_type": "page_view", "user_id": "u"}), 200, None, None),
+    (json.dumps({"event_type": "page_view", "user_id": "u"}), 400, "validation_failed", ["event_id"]),
+    (json.dumps({"event_id": "x", "event_type": "page_view", "user_id": ""}), 400, "validation_failed", ["user_id"]),
+    (json.dumps({"event_id": "x", "user_id": "u"}), 400, "validation_failed", ["event_type"]),
+    (json.dumps({"event_id": "x", "event_type": "click", "user_id": "u"}), 400, "validation_failed", ["event_type"]),
+    (json.dumps({"event_id": "x", "event_type": "page_view", "user_id": 42}), 400, "validation_failed", ["user_id"]),
+    (json.dumps({"event_id": "x", "event_type": "page_view", "user_id": "u", "event_ts": "not-a-date"}), 400, "validation_failed", ["event_ts"]),
+    (json.dumps({"event_id": "x", "event_type": "page_view", "user_id": "u", "event_ts": 12345}), 400, "validation_failed", ["event_ts"]),
+    (json.dumps({"event_id": "x", "event_type": "page_view", "user_id": "u", "properties": "x"}), 400, "validation_failed", ["properties"]),
+    ("", 400, "invalid_json", None),
+    ("[]", 400, "invalid_json", None),
+    ("not json{", 400, "invalid_json", None),
+    (json.dumps({"event_type": "click", "user_id": 42, "event_ts": "junk"}), 400, "validation_failed", ["event_id", "event_type", "event_ts", "user_id"]),
+]
+
+
+@pytest.mark.parametrize("body, expected_status, expected_error, expected_fields", VALIDATION_CASES)
+def test_validation_scenarios(body, expected_status, expected_error, expected_fields):
     with captured_put() as fake:
-        for bad in ("not json{", "[]"):
-            result = lambda_handler({"body": bad}, SimpleNamespace())
-            assert result["statusCode"] == 400, bad
-        fake.put_object.assert_not_called()
+        result = lambda_handler({"body": body}, SimpleNamespace())
+
+    assert result["statusCode"] == expected_status
+    if expected_status == 200:
+        fake.put_object.assert_called_once()
+        return
+    fake.put_object.assert_not_called()
+    payload = json.loads(result["body"])
+    if expected_error == "invalid_json":
+        assert payload["error"] == "invalid_json"
+    else:
+        assert payload["error"] == "validation_failed"
+        assert list(payload["details"].keys()) == expected_fields
