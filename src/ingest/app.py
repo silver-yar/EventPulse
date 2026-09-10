@@ -1,26 +1,77 @@
-"""EventPulse ingest handler (stub).
+"""EventPulse ingest handler.
 
-Real logic lands incrementally: request validation in ST-8, enrichment in
-ST-11, idempotency in ST-12, S3/Firehose writes in ST-7/ST-15.
+Writes one gzipped JSON line per event to events/YYYY/MM/DD/ in the events
+bucket (Tier A). Event timestamp defaults to now if absent; partition comes
+from the ISO event_ts. Structured validation and field-level 400s land in
+ST-8, enrichment in ST-11, idempotency in ST-12.
 """
 
+import datetime
+import gzip
 import json
 import logging
+import os
+import uuid
+
+import boto3
 
 logger = logging.getLogger()
 logger.setLevel(logging.INFO)
 
 
+def _bucket() -> str:
+    # Read per call: keeps imports side-effect free for tests/CI collection.
+    return os.environ["EVENTS_BUCKET"]
+
+
+def _utc_now() -> datetime.datetime:
+    return datetime.datetime.now(datetime.timezone.utc)
+
+
+def _response(status: int, body: dict) -> dict:
+    return {
+        "statusCode": status,
+        "headers": {"Content-Type": "application/json"},
+        "body": json.dumps(body),
+    }
+
+
 def lambda_handler(event, context):
+    raw = event.get("body")
+    try:
+        record = raw if isinstance(raw, dict) else json.loads(raw or "{}")
+        if not isinstance(record, dict):
+            raise ValueError("body must be a JSON object")
+    except (TypeError, ValueError, json.JSONDecodeError):
+        # Detailed field validation is ST-8; this only rejects undecodable input.
+        return _response(400, {"error": "invalid_json"})
+
+    record.setdefault("event_ts", _utc_now().isoformat())
+
+    # events/YYYY/MM/DD/<uuid>.json.gz — partition derived from ISO event_ts.
+    key = (
+        f"events/{record['event_ts'][0:4]}/{record['event_ts'][5:7]}/"
+        f"{record['event_ts'][8:10]}/{uuid.uuid4()}.json.gz"
+    )
+    body = gzip.compress((json.dumps(record, separators=(",", ":")) + "\n").encode("utf-8"))
+
+    s3 = boto3.client("s3")
+    s3.put_object(
+        Bucket=_bucket(),
+        Key=key,
+        Body=body,
+        ContentType="application/json",
+        ContentEncoding="gzip",
+    )
+
     logger.info(
         json.dumps(
             {
-                "message": "stub invoked",
-                "request_id": getattr(context, "aws_request_id", None),
+                "message": "event stored",
+                "event_id": record.get("event_id"),
+                "key": key,
+                "size_bytes": len(body),
             }
         )
     )
-    return {
-        "statusCode": 200,
-        "body": json.dumps({"status": "ok", "message": "EventPulse ingest stub"}),
-    }
+    return _response(200, {"status": "ok", "key": key})

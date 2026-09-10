@@ -48,6 +48,9 @@ Resources:
                 - s3:PutObject
               Resource:
                 - !Sub "${EventsBucket.Arn}/*"
+      Environment:
+        Variables:
+          EVENTS_BUCKET: !Ref EventsBucket
 
 Outputs:
   ApiEndpoint:
