@@ -26,7 +26,36 @@ Resources:
     Type: AWS::Serverless::Api
     Properties:
       StageName: Prod
-      # API key + usage plan arrive in ST-9.
+
+  ApiKey:
+    Type: AWS::ApiGateway::ApiKey
+    Properties:
+      Name: !Sub "eventpulse-${Environment}-key"
+      Enabled: true
+      GenerateDistinctId: true
+      StageKeys:
+        - RestApiId: !Ref EventApi
+          StageName: Prod
+      # No Value property: API Gateway generates the key secret, so nothing
+      # sensitive ever lives in the template. Fetch post-deploy via
+      # aws apigateway get-api-key --api-key <id> --include-value.
+
+  UsagePlan:
+    Type: AWS::ApiGateway::UsagePlan
+    Properties:
+      Throttle:
+        BurstLimit: 200
+        RateLimit: 100
+      ApiStages:
+        - ApiId: !Ref EventApi
+          Stage: Prod
+
+  UsagePlanKey:
+    Type: AWS::ApiGateway::UsagePlanKey
+    Properties:
+      UsagePlanId: !Ref UsagePlan
+      KeyId: !Ref ApiKey
+      KeyType: API_KEY
 
   IngestFunction:
     Type: AWS::Serverless::Function
@@ -39,6 +68,8 @@ Resources:
             RestApiId: !Ref EventApi
             Path: /events
             Method: post
+            Auth:
+              ApiKeyRequired: true
       Policies:
         - AWSLambdaBasicExecutionRole
         - Statement:
@@ -56,6 +87,9 @@ Outputs:
   ApiEndpoint:
     Description: Tier A REST API invoke URL
     Value: !Sub "https://${EventApi}.execute-api.${AWS::Region}.amazonaws.com/Prod/"
+  ApiKeyId:
+    Description: Key ID for the events API key; fetch value with get-api-key --include-value
+    Value: !Ref ApiKey
   EventsBucketName:
     Description: S3 events bucket
     Value: !Ref EventsBucket

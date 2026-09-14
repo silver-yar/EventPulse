@@ -5,4 +5,5 @@ __pycache__/
 .aws/
 *.log
 .aws-sam/
+.env
 plans/
