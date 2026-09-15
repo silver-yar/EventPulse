@@ -1,4 +1,4 @@
-# EventPulse
+# EventPulse (Tier A)
 
 Serverless event-ingestion platform: POST events, validate + enrich, land them
 in date-partitioned S3, run SQL analytics via Athena. Deployed with SAM + IaC,
@@ -58,10 +58,3 @@ returns 403 before the Lambda runs.
 sam build     # must pass
 sam validate  # must pass
 ```
-
-## TODO / caveats
-
-- 2026 AWS facts verified in ST-4 — see [`docs/decisions.md`](docs/decisions.md).
-  One drift found: the community `aws-sam-actions/deploy-cloudformation-stack`
-  action is gone (404); pipeline will use official
-  `aws-actions/setup-sam@v3` + `configure-aws-credentials@v4` + `sam deploy`.
