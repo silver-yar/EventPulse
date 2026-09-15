@@ -23,6 +23,20 @@ docs/backlog.csv       Jira import seed for the kanban backlog
 - AWS CLI configured (profile `eventpulse-admin`, region `us-east-1`)
 - AWS SAM CLI (`sam`)
 
+## Demo
+
+Generate + send 5,000 realistic events (shaped to the 100 rps usage plan via
+a client-side token bucket, ~2 min):
+
+```sh
+make demo                                # full 5,000-event run
+make demo DEMO_ARGS="--dry-run 5"       # print 5 sample payloads, send nothing
+make demo DEMO_ARGS="--count 200 --days 1"  # small, today-only
+```
+
+Expected output ends in `summary: sent=5000 failed=0 retried=0`, exit 0.
+Cost of a full run: pennies (5k small requests, ~40 gzipped S3 puts).
+
 ## API
 
 POST /events requires an API key (usage plan, ST-9):

@@ -21,3 +21,6 @@ smoke: build
 	@mkdir -p /tmp/docker-auth-empty && [ -f /tmp/docker-auth-empty/config.json ] || echo '{}' > /tmp/docker-auth-empty/config.json
 	# DOCKER_CONFIG override: local credsStore (osxkeychain) breaks docker-py auth resolution in non-interactive shells
 	DOCKER_CONFIG=/tmp/docker-auth-empty $(SAM) local invoke IngestFunction
+
+demo:
+	$(PY) scripts/generate_events.py $(DEMO_ARGS)
