@@ -6,8 +6,14 @@ driven by a kanban backlog (Jira, seed: `docs/backlog.csv`).
 
 ## Status
 
-**In progress** — executed as backlog stories ST-1..ST-26 (see
-[`docs/backlog.csv`](docs/backlog.csv) for the full ordered backlog).
+**Tier A**
+
+- **Complete** - executed as backlog stories ST-1..ST-10 ([`docs/backlog.csv`](docs/backlog.csv))
+
+**Tier B**
+
+- **In progress** — executed as backlog stories ST-11..ST-26 (see
+  [`docs/backlog.csv`](docs/backlog.csv) for the full ordered backlog).
 
 ## Layout
 
@@ -35,7 +41,7 @@ make demo DEMO_ARGS="--count 200 --days 1"  # small, today-only
 ```
 
 Expected output ends in `summary: sent=5000 failed=0 retried=0`, exit 0.
-Cost of a full run: pennies (5k small requests, ~40 gzipped S3 puts).
+Cost of a full run: ~3-4 cents (5k small requests, ~40 gzipped S3 puts).
 
 ## API
 
@@ -58,10 +64,3 @@ returns 403 before the Lambda runs.
 sam build     # must pass
 sam validate  # must pass
 ```
-
-## TODO / caveats
-
-- 2026 AWS facts verified in ST-4 — see [`docs/decisions.md`](docs/decisions.md).
-  One drift found: the community `aws-sam-actions/deploy-cloudformation-stack`
-  action is gone (404); pipeline will use official
-  `aws-actions/setup-sam@v3` + `configure-aws-credentials@v4` + `sam deploy`.
