@@ -156,9 +156,12 @@ def post(base_url: str, key: str, payload: dict, retries: int) -> tuple[int, boo
 def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--count", type=int, default=5000)
-    parser.add_argument("--rate", type=float, default=90)
-    parser.add_argument("--burst", type=int, default=20)
-    parser.add_argument("--workers", type=int, default=32)
+    # Defaults sized to the account's Lambda concurrency quota (10 concurrent
+    # executions): 8 workers x ~0.5s latency ~= 8 in-flight. Raise toward 90/32
+    # when AWS Lambda's concurrent-executions quota is increased past 10.
+    parser.add_argument("--rate", type=float, default=16)
+    parser.add_argument("--burst", type=int, default=8)
+    parser.add_argument("--workers", type=int, default=8)
     parser.add_argument("--days", type=int, default=7)
     parser.add_argument("--seed", type=int, default=42)
     parser.add_argument("--dry-run", type=int, default=0)

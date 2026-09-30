@@ -9,6 +9,7 @@ import pytest
 from unittest.mock import Mock, patch
 
 from src.ingest.app import lambda_handler
+from src.ingest.enrich import geo_country
 
 BUCKET = "eventpulse-events-us-east-1-123456789012-dev"
 
@@ -52,9 +53,13 @@ def test_valid_event_lands_gzip_object_under_date_prefix():
         assert kwargs["Bucket"] == BUCKET
         assert kwargs["Key"].startswith("events/2026/09/04/") and kwargs["Key"].endswith(".json.gz")
         assert kwargs["ContentEncoding"] == "gzip"
-        # decompressed content is the original event, one JSON line
+        # input fields are preserved exactly; enrichment adds derived fields
         stored = json.loads(gzip.decompress(kwargs["Body"]).decode("utf-8"))
-        assert stored == json.loads(SAMPLE_EVENT)
+        original = json.loads(SAMPLE_EVENT)
+        for field, value in original.items():
+            assert stored[field] == value
+        for enriched in ("event_day", "is_bot", "device_type", "browser", "geo_country"):
+            assert enriched in stored
 
 
 def test_missing_event_ts_is_set_to_now():
@@ -71,6 +76,20 @@ def test_missing_event_ts_is_set_to_now():
         )
         assert stored["event_id"] == "evt-2"
         assert stored["event_ts"]
+
+
+def test_xff_header_flows_into_geo():
+    with captured_put() as fake:
+        result = lambda_handler(
+            {
+                "body": SAMPLE_EVENT,
+                "headers": {"X-Forwarded-For": "203.0.113.9, 10.0.0.1"},
+            },
+            SimpleNamespace(),
+        )
+    assert result["statusCode"] == 200
+    stored = json.loads(gzip.decompress(fake.put_object.call_args.kwargs["Body"]).decode("utf-8"))
+    assert stored["geo_country"] == geo_country("203.0.113.9")
 
 
 # (body, expected_status, expected_error_code, expected_detail_fields)

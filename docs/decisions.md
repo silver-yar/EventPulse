@@ -93,6 +93,28 @@ silently ignored — each carries the downstream action.
 
 ---
 
+## F5 — Lambda concurrency quota (us-east-1, discovered ST-11)
+
+- **Status:** ENVIRONMENT FACT (discovered during ST-11 load testing)
+- **Verified:** 2026-09-30
+- **Finding:** The account's AWS Lambda **concurrent executions quota is 10**
+  (`get-account-settings` → ConcurrentExecutions: 10; Service Quotas
+  L-B99A9384 shows applied 10). Concurrent POST bursts beyond ~10 in-flight
+  invocations get Lambda-throttled; API Gateway relays that as
+  **HTTP 500 `{"message":"Internal server error"}`** with NO Lambda-side
+  error logs (no Errors metric, no Traceback — only Throttles metric climbs).
+  Diagnosed via `Throttles` in AWS/Lambda metrics.
+- **Worked around:** demo generator defaults 8 workers / 16 rps (8 in-flight at
+  ~0.5 s latency) — fits under 10, zero throttles. The 100 rps usage plan
+  remains the server ceiling.
+- **To raise:** Service Quotas console (Lambda → Concurrent executions) or
+  `service-quotas` CLI (note: request API validates against the 1000 default,
+  so a CLI request must exceed 1000 — console is cleaner).
+- **Impact:** README demo section, ST-10 generator defaults, any future load
+  story (ST-13 Firehose bypasses this for writes; the API path still applies).
+
+---
+
 ## F4 — Athena pricing
 
 - **Status:** VERIFIED (with noted variance)

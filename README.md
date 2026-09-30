@@ -31,8 +31,8 @@ docs/backlog.csv       Jira import seed for the kanban backlog
 
 ## Demo
 
-Generate + send 5,000 realistic events (shaped to the 100 rps usage plan via
-a client-side token bucket, ~2 min):
+Generate + send 5,000 realistic events (~5 min; rate tuned to the account's
+Lambda concurrency quota of 10 concurrent executions):
 
 ```sh
 make demo                                # full 5,000-event run
@@ -42,6 +42,11 @@ make demo DEMO_ARGS="--count 200 --days 1"  # small, today-only
 
 Expected output ends in `summary: sent=5000 failed=0 retried=0`, exit 0.
 Cost of a full run: ~3-4 cents (5k small requests, ~40 gzipped S3 puts).
+
+The API Gateway usage plan allows 100 rps, but Lambda concurrent executions
+is quota-limited to 10 in this account — script defaults (8 workers, 16 rps)
+sit safely under it. Raise the quota (Console: Service Quotas -> Lambda ->
+Concurrent executions) to accelerate, then pass `--rate 90 --workers 32`.
 
 ## API
 

@@ -15,6 +15,12 @@ import uuid
 
 import boto3
 
+try:
+    from enrich import enrich_event
+except ModuleNotFoundError:
+    # Lambda runs with src/ingest as the code root; tests import the package.
+    from src.ingest.enrich import enrich_event
+
 logger = logging.getLogger()
 logger.setLevel(logging.INFO)
 
@@ -57,6 +63,18 @@ def validate_event(record: dict) -> dict:
     properties = record.get("properties")
     if properties is not None and not isinstance(properties, dict):
         problem("properties", "must be an object")
+    elif isinstance(properties, dict):
+        currency = properties.get("currency")
+        if currency is not None and (not isinstance(currency, str) or len(currency) != 3):
+            problem("properties.currency", "must be a 3-letter code")
+
+    user_agent = record.get("user_agent")
+    if user_agent is not None and not isinstance(user_agent, str):
+        problem("user_agent", "must be a string")
+
+    client_ip = record.get("client_ip")
+    if client_ip is not None and not isinstance(client_ip, str):
+        problem("client_ip", "must be a string")
 
     return errors
 
@@ -102,6 +120,12 @@ def lambda_handler(event, context):
         return _response(400, {"error": "validation_failed", "details": errors})
 
     record.setdefault("event_ts", _utc_now().isoformat())
+
+    # Enrich before the partition key is built (ST-11); remote IP comes from
+    # API Gateway's X-Forwarded-For (first hop) unless the payload says otherwise.
+    xff = event.get("headers", {}).get("X-Forwarded-For")
+    remote_ip = (xff or "").split(",")[0].strip() or None
+    enrich_event(record, remote_ip)
 
     # events/YYYY/MM/DD/<uuid>.json.gz — partition derived from ISO event_ts.
     key = (
